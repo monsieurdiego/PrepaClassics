@@ -1,14 +1,10 @@
 'use client';
 
-import { createClient } from '@supabase/supabase-js';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from '../supabase';
 
 // Définition des propriétés que le composant recevra (ouvert/fermé)
 interface AuthModalProps {
@@ -24,10 +20,11 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   // Récupère l'utilisateur connecté
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !supabase) return;
+    if (!supabase) return;
     supabase.auth.getUser().then(async ({ data }) => {
       setUser(data?.user);
-      if (data?.user?.email) {
+      if (data?.user?.email && supabase) {
         // Vérifie le statut premium dans Supabase
         const { data: userData } = await supabase
           .from('users')
@@ -48,6 +45,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   // Si le modal n'est pas ouvert, on n'affiche rien
   if (!isOpen) return null;
+  if (!supabase) return <p>Erreur config Supabase : variables d'environnement manquantes.</p>;
 
   // Fonction pour lancer Stripe Checkout
   const handleCheckout = async () => {
@@ -90,41 +88,43 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         </div>
 
         {/* Le formulaire Supabase Auth UI */}
-        <Auth
-          supabaseClient={supabase}
-          appearance={{
-            theme: ThemeSupa,
-            variables: {
-              default: {
-                colors: {
-                  brand: '#2563eb',
-                  brandAccent: '#1d4ed8',
-                  inputText: 'white',
-                  inputBackground: '#1e293b',
-                  inputLabelText: '#94a3b8',
+        {supabase && (
+          <Auth
+            supabaseClient={supabase}
+            appearance={{
+              theme: ThemeSupa,
+              variables: {
+                default: {
+                  colors: {
+                    brand: '#2563eb',
+                    brandAccent: '#1d4ed8',
+                    inputText: 'white',
+                    inputBackground: '#1e293b',
+                    inputLabelText: '#94a3b8',
+                  },
                 },
               },
-            },
-          }}
-          providers={[]}
-          theme="dark"
-          redirectTo={undefined} // On gère la redirection nous-mêmes dans useEffect
-          localization={{
-            variables: {
-              sign_in: {
-                email_label: 'Adresse email',
-                password_label: 'Mot de passe',
-                button_label: 'Se connecter',
+            }}
+            providers={[]}
+            theme="dark"
+            redirectTo={undefined} // On gère la redirection nous-mêmes dans useEffect
+            localization={{
+              variables: {
+                sign_in: {
+                  email_label: 'Adresse email',
+                  password_label: 'Mot de passe',
+                  button_label: 'Se connecter',
+                },
+                sign_up: {
+                  email_label: 'Adresse email',
+                  password_label: 'Créer un mot de passe',
+                  button_label: "S'inscrire",
+                  link_text: "Pas de compte ? Créer un compte",
+                },
               },
-              sign_up: {
-                email_label: 'Adresse email',
-                password_label: 'Créer un mot de passe',
-                button_label: "S'inscrire",
-                link_text: "Pas de compte ? Créer un compte",
-              },
-            },
-          }}
-        />
+            }}
+          />
+        )}
         {/* Bouton Stripe Checkout si non premium */}
         {!isPremium && user && (
           <button

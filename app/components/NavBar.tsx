@@ -1,12 +1,8 @@
 'use client';
 
-import { createClient } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from '../supabase';
 
 interface NavBarProps {
   onLoginClick: () => void; // Nouvelle fonction pour ouvrir le modal
@@ -17,7 +13,9 @@ export default function NavBar({ onLoginClick }: NavBarProps) {
   const router = useRouter();
 
   useEffect(() => {
+    if (!supabase) return;
     const getUser = async () => {
+      if (!supabase) return;
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
     };
@@ -34,6 +32,7 @@ export default function NavBar({ onLoginClick }: NavBarProps) {
   }, [router]);
 
   const handleLogout = async () => {
+    if (!supabase) return;
     await supabase.auth.signOut();
   };
 
