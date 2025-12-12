@@ -1,12 +1,24 @@
+import os
 import requests
 from bs4 import BeautifulSoup
 from supabase import create_client, Client
 from urllib.parse import urljoin, unquote
 
 # --- CONFIGURATION ---
-# Utilise la clé SERVICE_ROLE (secrète) pour écrire dans la DB
-SUPABASE_URL = "https://anvtpyidqcykdcutiyyx.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFudnRweWlkcWN5a2RjdXRpeXl4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTQwMjc3OSwiZXhwIjoyMDgwOTc4Nzc5fQ.9S9cU-2zhZr416z8O-ZjQi6bNU1K46M3kD6P7cYjsec"
+""" 
+Charge les identifiants Supabase depuis les variables d'environnement.
+Requis:
+- SUPABASE_SERVICE_ROLE_KEY (clé secrète service role)
+- SUPABASE_URL ou NEXT_PUBLIC_SUPABASE_URL
+"""
+SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise RuntimeError(
+        "Variables d'environnement manquantes pour le scraper: SUPABASE_URL/NEXT_PUBLIC_SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY"
+    )
+
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- LISTE DES URLS À SCRAPER ---
