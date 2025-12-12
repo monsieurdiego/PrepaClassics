@@ -3,6 +3,8 @@
 
 
 import { supabase } from "./supabase";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import ClientPage from "./components/ClientPage";
 
 // Le composant principal gère la récupération des données
