@@ -8,7 +8,6 @@ import { useEffect } from 'react';
 
 export default function ExerciseList({ initialExercises }: { initialExercises: any[] }) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedMatiere, setSelectedMatiere] = useState<string | null>(null); // Algèbre / Analyse / Proba
   const [isPremium, setIsPremium] = useState<boolean>(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
@@ -35,48 +34,41 @@ export default function ExerciseList({ initialExercises }: { initialExercises: a
   }, []);
 
 
-  // Génère les catégories à partir de chapter+niveau, uniquement SUP, SPÉ, Oraux
-
-  const categories = useMemo(() => {
-    const validNiveaux = ["Sup", "Spé", "Oral"];
-    const cats = initialExercises
-      .filter(exo => validNiveaux.includes(exo.niveau))
-      .map(exo => {
-        if (exo.niveau === "Oral") return "Oraux";
-        return `${exo.chapter ? exo.chapter : ""} ${exo.niveau}`.trim();
-      });
-    return Array.from(new Set(cats)).sort();
-  }, [initialExercises]);
-
-  // Liste des matières (Algèbre / Analyse / Proba)
-  const matieres = useMemo(() => {
-    const valid = ["Algèbre", "Analyse", "Proba"];
-    const list = initialExercises
-      .map(exo => exo.categorie)
-      .filter((c: string | null | undefined) => !!c && valid.includes(c as string)) as string[];
-    return Array.from(new Set(list)).sort();
-  }, [initialExercises]);
+  // Catégories fixes demandées
+  const categories = [
+    "Algèbre Sup",
+    "Algèbre Spé",
+    "Analyse Sup",
+    "Analyse Spé",
+    "Probas Sup",
+    "Probas Spé",
+    "Oraux"
+  ];
 
   // Filtre selon la catégorie sélectionnée
 
-  const filteredExercises = initialExercises
-    .filter((exo) => {
-      if (!selectedCategory) return true;
-      if (selectedCategory === "Oraux") {
-        return exo.niveau === "Oral";
-      }
-      const cat = `${exo.chapter ? exo.chapter : ""} ${exo.niveau ? exo.niveau : ""}`.trim();
-      return cat === selectedCategory;
-    })
-    .filter((exo) => {
-      if (!selectedMatiere) return true;
-      return exo.categorie === selectedMatiere;
-    });
+  // Filtrage selon la catégorie sélectionnée
+  const filteredExercises = initialExercises.filter((exo) => {
+    if (!selectedCategory) return true;
+    if (selectedCategory === "Oraux") {
+      return exo.niveau === "Oral";
+    }
+    // Catégories combinées
+    const mapping = {
+      "Algèbre Sup": exo.chapter === "Algèbre" && exo.niveau === "Sup",
+      "Algèbre Spé": exo.chapter === "Algèbre" && exo.niveau === "Spé",
+      "Analyse Sup": exo.chapter === "Analyse" && exo.niveau === "Sup",
+      "Analyse Spé": exo.chapter === "Analyse" && exo.niveau === "Spé",
+      "Probas Sup": (exo.chapter === "Probas" || exo.chapter === "Probabilités") && exo.niveau === "Sup",
+      "Probas Spé": (exo.chapter === "Probas" || exo.chapter === "Probabilités") && exo.niveau === "Spé",
+    };
+    return mapping[selectedCategory] === true;
+  });
 
   return (
     <div>
-      {/* --- BOUTONS DE TRI (Catégories par chapitre+niveau) --- */}
-      <div className="mb-6 flex flex-wrap gap-2">
+      {/* --- BOUTONS DE TRI (Catégories fixes) --- */}
+      <div className="mb-10 flex flex-wrap gap-2">
         {categories.map(cat => (
           <button
             key={cat}
@@ -91,25 +83,6 @@ export default function ExerciseList({ initialExercises }: { initialExercises: a
           className={`px-5 py-3 rounded-xl font-bold border transition-all ${selectedCategory === null ? "bg-emerald-600 text-white border-emerald-700" : "bg-slate-900 text-emerald-400 border-slate-700 hover:bg-emerald-950 hover:text-white"}`}
         >
           Toutes catégories
-        </button>
-      </div>
-
-      {/* --- BOUTONS DE TRI (Matières Algèbre / Analyse / Proba) --- */}
-      <div className="mb-10 flex flex-wrap gap-2">
-        {matieres.map(m => (
-          <button
-            key={m}
-            onClick={() => setSelectedMatiere(m)}
-            className={`px-5 py-3 rounded-xl font-bold border transition-all ${selectedMatiere === m ? "bg-purple-600 text-white border-purple-700" : "bg-slate-900 text-purple-300 border-slate-700 hover:bg-purple-950 hover:text-white"}`}
-          >
-            {m}
-          </button>
-        ))}
-        <button
-          onClick={() => setSelectedMatiere(null)}
-          className={`px-5 py-3 rounded-xl font-bold border transition-all ${selectedMatiere === null ? "bg-emerald-600 text-white border-emerald-700" : "bg-slate-900 text-emerald-400 border-slate-700 hover:bg-emerald-950 hover:text-white"}`}
-        >
-          Toutes matières
         </button>
       </div>
 
