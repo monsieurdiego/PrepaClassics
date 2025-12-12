@@ -6,11 +6,8 @@ import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-// 👇 REMPLACE JUSTE L'URL CI-DESSOUS PAR LA TIENNE
-const supabaseUrl = 'https://anvtpyidqcykdcutiyyx.supabase.co'; 
-// 👇 J'ai déjà mis ta clé publique ici :
-const supabaseAnonKey = 'sb_publishable_SG03U_jCj1qzTXx1YjJyNw_Cx50TvkH'; 
-
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Définition des propriétés que le composant recevra (ouvert/fermé)
