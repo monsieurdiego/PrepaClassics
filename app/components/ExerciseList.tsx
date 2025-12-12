@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 
 export default function ExerciseList({ initialExercises }: { initialExercises: any[] }) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedMatiere, setSelectedMatiere] = useState<string | null>(null); // Algèbre / Analyse / Proba
   const [isPremium, setIsPremium] = useState<boolean>(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
@@ -47,21 +48,35 @@ export default function ExerciseList({ initialExercises }: { initialExercises: a
     return Array.from(new Set(cats)).sort();
   }, [initialExercises]);
 
+  // Liste des matières (Algèbre / Analyse / Proba)
+  const matieres = useMemo(() => {
+    const valid = ["Algèbre", "Analyse", "Proba"];
+    const list = initialExercises
+      .map(exo => exo.categorie)
+      .filter((c: string | null | undefined) => !!c && valid.includes(c as string)) as string[];
+    return Array.from(new Set(list)).sort();
+  }, [initialExercises]);
+
   // Filtre selon la catégorie sélectionnée
 
-  const filteredExercises = initialExercises.filter((exo) => {
-    if (!selectedCategory) return true;
-    if (selectedCategory === "Oraux") {
-      return exo.niveau === "Oral";
-    }
-    const cat = `${exo.chapter ? exo.chapter : ""} ${exo.niveau ? exo.niveau : ""}`.trim();
-    return cat === selectedCategory;
-  });
+  const filteredExercises = initialExercises
+    .filter((exo) => {
+      if (!selectedCategory) return true;
+      if (selectedCategory === "Oraux") {
+        return exo.niveau === "Oral";
+      }
+      const cat = `${exo.chapter ? exo.chapter : ""} ${exo.niveau ? exo.niveau : ""}`.trim();
+      return cat === selectedCategory;
+    })
+    .filter((exo) => {
+      if (!selectedMatiere) return true;
+      return exo.categorie === selectedMatiere;
+    });
 
   return (
     <div>
-      {/* --- BOUTONS DE TRI --- */}
-      <div className="mb-10 flex flex-wrap gap-2">
+      {/* --- BOUTONS DE TRI (Catégories par chapitre+niveau) --- */}
+      <div className="mb-6 flex flex-wrap gap-2">
         {categories.map(cat => (
           <button
             key={cat}
@@ -76,6 +91,25 @@ export default function ExerciseList({ initialExercises }: { initialExercises: a
           className={`px-5 py-3 rounded-xl font-bold border transition-all ${selectedCategory === null ? "bg-emerald-600 text-white border-emerald-700" : "bg-slate-900 text-emerald-400 border-slate-700 hover:bg-emerald-950 hover:text-white"}`}
         >
           Toutes catégories
+        </button>
+      </div>
+
+      {/* --- BOUTONS DE TRI (Matières Algèbre / Analyse / Proba) --- */}
+      <div className="mb-10 flex flex-wrap gap-2">
+        {matieres.map(m => (
+          <button
+            key={m}
+            onClick={() => setSelectedMatiere(m)}
+            className={`px-5 py-3 rounded-xl font-bold border transition-all ${selectedMatiere === m ? "bg-purple-600 text-white border-purple-700" : "bg-slate-900 text-purple-300 border-slate-700 hover:bg-purple-950 hover:text-white"}`}
+          >
+            {m}
+          </button>
+        ))}
+        <button
+          onClick={() => setSelectedMatiere(null)}
+          className={`px-5 py-3 rounded-xl font-bold border transition-all ${selectedMatiere === null ? "bg-emerald-600 text-white border-emerald-700" : "bg-slate-900 text-emerald-400 border-slate-700 hover:bg-emerald-950 hover:text-white"}`}
+        >
+          Toutes matières
         </button>
       </div>
 
@@ -100,7 +134,7 @@ export default function ExerciseList({ initialExercises }: { initialExercises: a
             </div>
             <div className="mt-6">
               {/* Protection premium : si exo.premium === true et user non premium, affiche un message d'incitation */}
-              {exo.premium && !isPremium ? (
+              {exo.is_premium && !isPremium ? (
                 <div className="block w-full text-center bg-yellow-700 text-white font-medium px-4 py-3 rounded-xl transition-all shadow-md">
                   🔒 Exercice premium — <span className="underline">Abonne-toi pour débloquer</span>
                 </div>
