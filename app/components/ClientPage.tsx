@@ -40,6 +40,27 @@ export default function ClientPage({ initialExercises }: ClientPageProps) {
     loadProgress();
   }, [initialExercises]);
 
+  const refreshProgress = async () => {
+    if (!sharedSupabase) return;
+    const { data: { user } } = await sharedSupabase.auth.getUser();
+    const uid = user?.id || null;
+    if (!uid) return;
+    const ids = initialExercises.map(e => e.id);
+    if (!ids.length) return;
+    const { data } = await sharedSupabase
+      .from('user_progress')
+      .select('exercise_id,index,status')
+      .eq('user_id', uid)
+      .in('exercise_id', ids);
+    const map: Record<number, number> = {};
+    (data || []).forEach((row: any) => {
+      if (row.status === 'done') {
+        map[row.exercise_id] = (map[row.exercise_id] || 0) + 1;
+      }
+    });
+    setProgressMap(map);
+  };
+
   const totals = useMemo(() => {
     const totalBubbles = initialExercises.reduce((acc, e: any) => acc + (e.exercise_count || 0), 0);
     const totalDone = initialExercises.reduce((acc, e: any) => acc + (progressMap[e.id] || 0), 0);
@@ -104,7 +125,7 @@ export default function ClientPage({ initialExercises }: ClientPageProps) {
         </header>
 
         {/* 3. La liste des exercices */}
-        <ExerciseList initialExercises={initialExercises} />
+        <ExerciseList initialExercises={initialExercises} onProgressChange={refreshProgress} />
 
         {/* 4. Le MODAL DE CONNEXION */}
         <AuthModal 

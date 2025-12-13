@@ -2,7 +2,7 @@ import os
 import requests
 from bs4 import BeautifulSoup
 from supabase import create_client, Client
-from urllib.parse import urljoin, unquote
+from urllib.parse import urljoin, unquote, urlsplit, urlunsplit, quote
 
 # --- CONFIGURATION ---
 """ 
@@ -42,42 +42,65 @@ def scrape_exercises(chapter_label, url):
         return []
 
     soup = BeautifulSoup(response.content, 'html.parser')
-    # Détection du niveau (robuste à l'encodage)
+    # Détection déterministe basée sur chapter_label, avec fallback URL
     url_decoded = unquote(url).lower()
-    if "exercices-sup" in url_decoded:
-        niveau = "Sup"
-    elif "exercices-spé" in url_decoded or "exercices-spe" in url_decoded:
+    label = chapter_label.lower()
+    if "spé" in label or "spe" in label:
         niveau = "Spé"
-    elif "exercices-oraux" in url_decoded:
+    elif "sup" in label:
+        niveau = "Sup"
+    elif "oral" in label:
         niveau = "Oral"
     else:
-        niveau = "Autre"
+        if "exercices-sup" in url_decoded:
+            niveau = "Sup"
+        elif "exercices-spé" in url_decoded or "exercices-spe" in url_decoded:
+            niveau = "Spé"
+        elif "exercices-oraux" in url_decoded:
+            niveau = "Oral"
+        else:
+            niveau = "Autre"
 
-    # Détection du type de chapitre (robuste à l'encodage)
-    if "algèbre" in url_decoded or "algebre" in url_decoded:
+    # Type de chapitre normalisé
+    if "algèbre" in label or "algebre" in label or "algèbre" in url_decoded or "algebre" in url_decoded:
         chapitre_type = "Algèbre"
-    elif "analyse" in url_decoded:
+    elif "analyse" in label or "analyse" in url_decoded:
         chapitre_type = "Analyse"
-    elif "proba" in url_decoded:
-        chapitre_type = "Proba"
+    elif "proba" in label or "probabil" in label or "proba" in url_decoded or "probabil" in url_decoded:
+        chapitre_type = "Probas"
     else:
         chapitre_type = "Autre"
 
-    # Nom du chapitre (plus lisible)
+    # Nom de chapitre affiché (pour l’UI), cohérent avec filtre
     if niveau == "Oral":
         chapter_name = "Oraux"
     else:
-        # On prend le dossier juste avant le dernier slash (ex: algèbre, analyse, probas)
-        parts = url_decoded.strip('/').split('/')
-        chapter_name = unquote(parts[-1]).capitalize() if len(parts) > 0 else chapter_label
+        chapter_name = chapitre_type
 
     exercises_to_insert = []
+
+    def canonicalize_url(u: str) -> str:
+        # Décode d'abord, puis réencode proprement, et uniformise le casing du schéma/host
+        try:
+            parts = urlsplit(u)
+            scheme = parts.scheme.lower()
+            netloc = parts.netloc.lower()
+            # Décoder puis réencoder le chemin avec quote (accents → percent-encoding uniforme)
+            decoded_path = unquote(parts.path)
+            encoded_path = quote(decoded_path, safe='/._-')
+            # Idem pour query
+            decoded_query = unquote(parts.query)
+            encoded_query = quote(decoded_query, safe='=&._-')
+            canonical = urlunsplit((scheme, netloc, encoded_path.rstrip('/'), encoded_query, ''))
+            return canonical
+        except Exception:
+            return u.rstrip('/')
 
     for link in soup.find_all('a'):
         href = link.get('href')
         filename = link.get_text().strip()
         if href and href.lower().endswith('.pdf'):
-            full_url = urljoin(url, href)
+            full_url = canonicalize_url(urljoin(url, href))
             clean_title = filename.replace('.pdf', '').replace('-', ' ').replace('_', ' ').capitalize()
             print(f"📄 Trouvé : {clean_title}")
             data = {

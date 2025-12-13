@@ -24,8 +24,37 @@ Prérequis:
 """
 
 # --- Configuration Supabase ---
-SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or "https://VOTRE-PROJET.supabase.co"
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "PASTE_VOTRE_SERVICE_ROLE_ICI"
+def _load_env_file(path: str) -> dict:
+    env = {}
+    try:
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    if '=' in line:
+                        k, v = line.split('=', 1)
+                        env[k.strip()] = v.strip()
+    except Exception:
+        pass
+    return env
+
+local_env = _load_env_file(os.path.join(os.path.dirname(__file__), '..', '.env.local'))
+SUPABASE_URL = (
+    os.environ.get("SUPABASE_URL")
+    or os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
+    or local_env.get("SUPABASE_URL")
+    or local_env.get("NEXT_PUBLIC_SUPABASE_URL")
+    or "https://VOTRE-PROJET.supabase.co"
+)
+SUPABASE_KEY = (
+    os.environ.get("SUPABASE_KEY")
+    or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    or local_env.get("SUPABASE_KEY")
+    or local_env.get("SUPABASE_SERVICE_ROLE_KEY")
+    or "PASTE_VOTRE_SERVICE_ROLE_ICI"
+)
 
 if not SUPABASE_URL or not SUPABASE_KEY or "VOTRE-PROJET" in SUPABASE_URL or "PASTE_VOTRE_SERVICE_ROLE_ICI" in SUPABASE_KEY:
     print("[ERREUR] Variables d'environnement manquantes ou placeholders actifs. \n"
@@ -50,7 +79,11 @@ CORRECTION_PATTERN = re.compile(r"\b[Cc]orrection\b")
 def fetch_pdf_text(url: str) -> str:
     """Télécharge le PDF en mémoire et renvoie son texte complet."""
     try:
-        resp = requests.get(url, timeout=30)
+        resp = requests.get(
+            url,
+            timeout=30,
+            headers={"User-Agent": "PrepaClassics/1.0 (+https://prepaclassics.app)"}
+        )
         resp.raise_for_status()
     except Exception as e:
         raise RuntimeError(f"Téléchargement PDF échoué: {e}")
@@ -101,7 +134,10 @@ def count_exercises_in_text(text: str) -> int:
 
 def process_all_exercises():
     # Récupère id, url_enonce, title, exercise_count
-    res = supabase.from("exercises").select("id, url_enonce, title, exercise_count").execute()
+    try:
+        res = supabase.table("exercises").select("id, url_enonce, title, exercise_count").execute()
+    except Exception as e:
+        raise RuntimeError(f"Erreur Supabase (lecture): {e}. Vérifiez SUPABASE_URL/SUPABASE_KEY (service role).")
     rows = res.data or []
 
     if not rows:
@@ -138,7 +174,7 @@ def process_all_exercises():
         if current_count != new_count:
             # Met à jour en base
             try:
-                supabase.from("exercises").update({"exercise_count": new_count}).eq("id", exo_id).execute()
+                supabase.table("exercises").update({"exercise_count": new_count}).eq("id", exo_id).execute()
                 log.info(f"{title} : {new_count} exos trouvés... Update OK (ancien={current_count}).")
             except Exception as e:
                 log.info(f"{title} : {new_count} exos trouvés... Update FAILED ({e}).")

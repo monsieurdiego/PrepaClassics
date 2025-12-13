@@ -12,6 +12,13 @@ export default function NavBar({ onLoginClick }: NavBarProps) {
   const [user, setUser] = useState<any>(null);
   const router = useRouter();
 
+  const handleLogout = async () => {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    // optionnel: recharger la page pour repartir propre
+    window.location.reload();
+  };
+
   useEffect(() => {
     if (!supabase) return;
     const getUser = async () => {
@@ -31,10 +38,7 @@ export default function NavBar({ onLoginClick }: NavBarProps) {
     return () => subscription.unsubscribe();
   }, [router]);
 
-  const handleLogout = async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
-  };
+  // (Unique) Déconnexion gérée ci-dessus
 
   return (
     <nav className="flex justify-end mb-8">
@@ -47,12 +51,14 @@ export default function NavBar({ onLoginClick }: NavBarProps) {
           <span className="text-sm text-slate-300 font-medium hidden md:inline">
             {user.email}
           </span>
-          <button 
-            onClick={handleLogout}
-            className="text-xs text-red-400 hover:text-red-300 hover:bg-red-900/30 px-2 py-1 rounded transition-colors"
-          >
-            Déconnexion
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleLogout}
+              className="text-xs text-red-400 hover:text-red-300 hover:bg-red-900/30 px-2 py-1 rounded transition-colors"
+            >
+              Déconnexion
+            </button>
+          </div>
         </div>
       ) : (
         // --- SI DÉCONNECTÉ : Affiche le BOUTON qui ouvre le modal ---
