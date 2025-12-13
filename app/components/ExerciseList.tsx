@@ -1,6 +1,7 @@
 'use client'; // Indique que c'est un composant interactif
 
 import { useState, useMemo } from 'react';
+import { supabase } from '../supabase';
 import { useEffect } from 'react';
 
 
@@ -10,6 +11,7 @@ export default function ExerciseList({ initialExercises }: { initialExercises: a
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState<boolean>(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userProgress, setUserProgress] = useState<Record<string, 'todo' | 'done' | 'review'>>({});
 
   // Récupère l'utilisateur et le statut premium
   useEffect(() => {
@@ -28,6 +30,20 @@ export default function ExerciseList({ initialExercises }: { initialExercises: a
           .eq('email', user.email)
           .single();
         setIsPremium(!!userData?.is_premium);
+
+        // Charger le progrès utilisateur pour les exercices visibles
+        const ids = initialExercises.map((e) => e.id);
+        if (ids.length) {
+          const { data: progress } = await supabase
+            .from('user_progress')
+            .select('exercise_id,index,status')
+            .in('exercise_id', ids);
+          const map: Record<string, 'todo' | 'done' | 'review'> = {};
+          (progress || []).forEach((p: any) => {
+            map[`${p.exercise_id}:${p.index}`] = (p.status as 'todo' | 'done' | 'review') || 'todo';
+          });
+          setUserProgress(map);
+        }
       }
     };
     getUser();
@@ -64,6 +80,25 @@ export default function ExerciseList({ initialExercises }: { initialExercises: a
     };
     return mapping[selectedCategory] === true;
   });
+
+  const toggleBubble = async (exerciseId: number, index: number) => {
+    const key = `${exerciseId}:${index}`;
+    const current = userProgress[key] || 'todo';
+    const next: 'todo' | 'done' | 'review' = current === 'todo' ? 'done' : current === 'done' ? 'review' : 'todo';
+    setUserProgress((prev) => ({ ...prev, [key]: next }));
+
+    // Persistance côté Supabase
+    try {
+      if (!supabase) return;
+      await supabase
+        .from('user_progress')
+        .upsert({ exercise_id: exerciseId, index, status: next })
+        .select();
+    } catch (err) {
+      // rollback simple en cas d’échec
+      setUserProgress((prev) => ({ ...prev, [key]: current }));
+    }
+  };
 
   return (
     <div>
@@ -106,6 +141,25 @@ export default function ExerciseList({ initialExercises }: { initialExercises: a
               </h2>
             </div>
             <div className="mt-6">
+              {/* Rangée de bulles 1..N selon exercise_count */}
+              {typeof exo.exercise_count === 'number' && exo.exercise_count > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {Array.from({ length: exo.exercise_count }, (_, i) => i + 1).map((idx) => {
+                    const state = userProgress[`${exo.id}:${idx}`] || 'todo';
+                    const color = state === 'done' ? 'bg-emerald-600 border-emerald-700 text-white' : state === 'review' ? 'bg-amber-600 border-amber-700 text-white' : 'bg-slate-800 border-slate-700 text-slate-300';
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => toggleBubble(exo.id, idx)}
+                        className={`w-8 h-8 rounded-full border text-xs font-bold ${color}`}
+                        title={`Exercice ${idx} — ${state}`}
+                      >
+                        {idx}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               {/* Protection premium : si exo.premium === true et user non premium, affiche un message d'incitation */}
               {exo.is_premium && !isPremium ? (
                 <div className="block w-full text-center bg-yellow-700 text-white font-medium px-4 py-3 rounded-xl transition-all shadow-md">
