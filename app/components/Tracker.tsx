@@ -23,12 +23,13 @@ export default function Tracker({ exerciseId, totalExos = 1 }: TrackerProps) {
       if (user && exoIdNum) {
         const { data, error } = await supabase
           .from('user_progress')
-          .select('index,status')
+          .select('numero,status')
           .eq('exercise_ref', exoIdNum);
         if (!error && data) {
           const next = new Set<number>();
           data.forEach((row: any) => {
-            if ((row.status || 'todo') === 'done') next.add(row.index as number);
+            const st = (row.status || 'DONE').toUpperCase();
+            if (st === 'DONE') next.add(row.numero as number);
           });
           setDoneSet(next);
         }
@@ -67,14 +68,14 @@ export default function Tracker({ exerciseId, totalExos = 1 }: TrackerProps) {
           .from('user_progress')
           .delete()
           .eq('exercise_ref', exoIdNum)
-          .eq('index', index)
-          .eq('status', 'done');
+          .eq('numero', index)
+          .eq('status', 'DONE');
         if (error) throw error;
       } else {
         // Insère/Upsert en 'done' pour cet index
         const { error } = await supabase
           .from('user_progress')
-          .upsert({ exercise_ref: exoIdNum, index, status: 'done' });
+          .upsert({ exercise_ref: exoIdNum, numero: index, status: 'DONE' });
         if (error) throw error;
       }
     } catch (err) {
@@ -102,7 +103,7 @@ export default function Tracker({ exerciseId, totalExos = 1 }: TrackerProps) {
             key={idx}
             onClick={() => toggleExercise(idx)}
             className={`w-8 h-8 rounded-full border text-xs font-bold ${cls}`}
-            title={`Exercice ${idx} — ${isDone ? 'done' : 'todo'}`}
+            title={`Exercice ${idx} — ${isDone ? 'DONE' : 'TODO'}`}
           >
             {idx}
           </button>
