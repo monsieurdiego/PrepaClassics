@@ -8,13 +8,12 @@ import Tracker from './Tracker';
 
 
 
-export default function ExerciseList({ initialExercises, onProgressChange, onProgressChangeImmediate }: { initialExercises: any[]; onProgressChange?: () => void; onProgressChangeImmediate?: (exerciseId: number, index: number, status: 'todo' | 'review' | 'done') => void }) {
+export default function ExerciseList({ initialExercises }: { initialExercises: any[] }) {
   // Typage strict des catégories
   type FixedCategory = "Algèbre Sup" | "Algèbre Spé" | "Analyse Sup" | "Analyse Spé" | "Probas Sup" | "Probas Spé" | "Oraux";
   const [selectedCategory, setSelectedCategory] = useState<FixedCategory | null>(null);
   const [isPremium, setIsPremium] = useState<boolean>(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [userProgress, setUserProgress] = useState<Record<string, 'todo' | 'done' | 'review'>>({});
   const [userId, setUserId] = useState<string | null>(null);
 
   // Récupère l'utilisateur et le statut premium
@@ -32,19 +31,7 @@ export default function ExerciseList({ initialExercises, onProgressChange, onPro
           .single();
         setIsPremium(!!userData?.is_premium);
 
-        // Charger le progrès utilisateur pour les exercices visibles
-        const ids = initialExercises.map((e) => e.id);
-        if (ids.length) {
-          const { data: progress } = await supabase
-            .from('user_progress')
-            .select('exercise_id,index,status')
-            .in('exercise_id', ids);
-          const map: Record<string, 'todo' | 'done' | 'review'> = {};
-          (progress || []).forEach((p: any) => {
-            map[`${p.exercise_id}:${p.index}`] = (p.status as 'todo' | 'done' | 'review') || 'todo';
-          });
-          setUserProgress(map);
-        }
+        // La progression est désormais gérée par le composant Tracker.
       }
     };
     getUser();
@@ -92,33 +79,7 @@ export default function ExerciseList({ initialExercises, onProgressChange, onPro
     return (a.title || '').localeCompare(b.title || '');
   });
 
-  const toggleBubble = async (exerciseId: number, index: number) => {
-    const key = `${exerciseId}:${index}`;
-    const current = userProgress[key] || 'todo';
-    // Nouveau cycle: todo -> review (jaune) -> done (vert) -> todo (gris)
-    const next: 'todo' | 'done' | 'review' = current === 'todo' ? 'review' : current === 'review' ? 'done' : 'todo';
-    setUserProgress((prev) => ({ ...prev, [key]: next }));
-    onProgressChangeImmediate && onProgressChangeImmediate(exerciseId, index, next);
-
-    // Persistance côté Supabase
-    try {
-      if (supabase && userId) {
-        const { data, error } = await supabase
-          .from('user_progress')
-          .upsert({ exercise_id: exerciseId, index, status: next })
-          .select();
-        if (error) {
-          console.error('Erreur upsert user_progress:', error);
-        }
-        // Rafraîchir les barres en haut
-        onProgressChange && onProgressChange();
-      }
-    } catch (err) {
-      // rollback simple en cas d’échec
-      setUserProgress((prev) => ({ ...prev, [key]: current }));
-      console.error('Échec persistance user_progress:', err);
-    }
-  };
+  // La gestion des bulles et de la persistance est déléguée à Tracker.
 
   return (
     <div>
@@ -188,36 +149,7 @@ export default function ExerciseList({ initialExercises, onProgressChange, onPro
               </h2>
             </div>
             <div className="mt-6">
-              {/* Rangée de bulles 1..N selon exercise_count */}
-              {typeof exo.exercise_count === 'number' && exo.exercise_count > 0 && (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {Array.from({ length: exo.exercise_count }, (_, i) => i + 1).map((idx) => {
-                    const state = userProgress[`${exo.id}:${idx}`] || 'todo';
-                    // Couleurs de statut distinctes des couleurs de niveau
-                    const color = state === 'done'
-                      ? 'bg-green-600 border-green-700 text-white'
-                      : state === 'review'
-                      ? 'bg-yellow-500 border-yellow-600 text-slate-900'
-                      : 'bg-slate-800 border-slate-700 text-slate-300';
-                    return (
-                      <button
-                        key={idx}
-                        onClick={() => toggleBubble(exo.id, idx)}
-                        className={`w-8 h-8 rounded-full border text-xs font-bold ${color}`}
-                        title={`Exercice ${idx} — ${state}`}
-                      >
-                        {idx}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {/* Légende des statuts */}
-              <div className="mt-2 text-xs text-slate-400 flex gap-4 items-center">
-                <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-yellow-500 border border-yellow-600" /> À revoir</span>
-                <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-600 border border-green-700" /> Compris</span>
-                <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-slate-800 border border-slate-700" /> À faire</span>
-              </div>
+              {/* Bulles de progression gérées par Tracker */}
               {/* Protection premium : si exo.premium === true et user non premium, affiche un message d'incitation */}
               {exo.is_premium && !isPremium ? (
                 <div className="block w-full text-center bg-yellow-700 text-white font-medium px-4 py-3 rounded-xl transition-all shadow-md">
