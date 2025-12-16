@@ -107,7 +107,7 @@ export default function ExerciseList({ initialExercises, onProgressChange }: { i
       if (supabase && userId) {
         await supabase
           .from('user_progress')
-          .upsert({ user_id: userId, exercise_id: exerciseId, index, status: next })
+          .upsert({ exercise_id: exerciseId, index, status: next })
           .select();
         // Rafraîchir les barres en haut
         onProgressChange && onProgressChange();
