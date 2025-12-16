@@ -3,11 +3,12 @@
 import { useState, useMemo } from 'react';
 import { supabase } from '../supabase';
 import { useEffect } from 'react';
+import Tracker from './Tracker';
 
 
 
 
-export default function ExerciseList({ initialExercises, onProgressChange }: { initialExercises: any[]; onProgressChange?: () => void }) {
+export default function ExerciseList({ initialExercises, onProgressChange, onProgressChangeImmediate }: { initialExercises: any[]; onProgressChange?: () => void; onProgressChangeImmediate?: (exerciseId: number, index: number, status: 'todo' | 'review' | 'done') => void }) {
   // Typage strict des catégories
   type FixedCategory = "Algèbre Sup" | "Algèbre Spé" | "Analyse Sup" | "Analyse Spé" | "Probas Sup" | "Probas Spé" | "Oraux";
   const [selectedCategory, setSelectedCategory] = useState<FixedCategory | null>(null);
@@ -19,11 +20,7 @@ export default function ExerciseList({ initialExercises, onProgressChange }: { i
   // Récupère l'utilisateur et le statut premium
   useEffect(() => {
     const getUser = async () => {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      if (!supabaseUrl || !supabaseAnonKey) return;
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      if (!supabase) return;
       const { data: { user } } = await supabase.auth.getUser();
       setUserEmail(user?.email || null);
       setUserId(user?.id || null);
@@ -101,20 +98,25 @@ export default function ExerciseList({ initialExercises, onProgressChange }: { i
     // Nouveau cycle: todo -> review (jaune) -> done (vert) -> todo (gris)
     const next: 'todo' | 'done' | 'review' = current === 'todo' ? 'review' : current === 'review' ? 'done' : 'todo';
     setUserProgress((prev) => ({ ...prev, [key]: next }));
+    onProgressChangeImmediate && onProgressChangeImmediate(exerciseId, index, next);
 
     // Persistance côté Supabase
     try {
       if (supabase && userId) {
-        await supabase
+        const { data, error } = await supabase
           .from('user_progress')
           .upsert({ exercise_id: exerciseId, index, status: next })
           .select();
+        if (error) {
+          console.error('Erreur upsert user_progress:', error);
+        }
         // Rafraîchir les barres en haut
         onProgressChange && onProgressChange();
       }
     } catch (err) {
       // rollback simple en cas d’échec
       setUserProgress((prev) => ({ ...prev, [key]: current }));
+      console.error('Échec persistance user_progress:', err);
     }
   };
 
@@ -231,6 +233,8 @@ export default function ExerciseList({ initialExercises, onProgressChange }: { i
                   📄 Voir le PDF
                 </a>
               )}
+              {/* Tracker de progression par bulles */}
+              <Tracker exerciseId={exo.id} totalExos={exo.exercise_count || 1} />
             </div>
           </div>
         );})}

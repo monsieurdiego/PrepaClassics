@@ -61,6 +61,21 @@ export default function ClientPage({ initialExercises }: ClientPageProps) {
     setProgressMap(map);
   };
 
+  // Mise à jour immédiate sans requête, pour réactivité
+  const onProgressChangeImmediate = (exerciseId: number, index: number, status: 'todo' | 'review' | 'done') => {
+    setProgressMap((prev) => {
+      const next = { ...prev };
+      if (status === 'done') {
+        next[exerciseId] = (next[exerciseId] || 0) + 1;
+      } else {
+        // Si on sort de "done", décrémente
+        const current = next[exerciseId] || 0;
+        if (current > 0) next[exerciseId] = current - 1;
+      }
+      return next;
+    });
+  };
+
   const totals = useMemo(() => {
     const totalBubbles = initialExercises.reduce((acc, e: any) => acc + (e.exercise_count || 0), 0);
     const totalDone = initialExercises.reduce((acc, e: any) => acc + (progressMap[e.id] || 0), 0);
@@ -76,6 +91,28 @@ export default function ClientPage({ initialExercises }: ClientPageProps) {
       byChapter[ch].done += (progressMap[e.id] || 0);
     });
     return byChapter;
+  }, [initialExercises, progressMap]);
+
+  // Totaux par chapitre et par niveau (Sup / Spé)
+  const chapterLevelTotals = useMemo(() => {
+    const normalizeNiveau = (niv?: string) => {
+      if (!niv) return '';
+      const s = niv.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+      if (s.startsWith('sup')) return 'sup';
+      if (s.startsWith('spe')) return 'spe';
+      return '';
+    };
+    const result: Record<string, { sup: { bubbles: number; done: number }; spe: { bubbles: number; done: number } }> = {};
+    initialExercises.forEach((e: any) => {
+      const ch = e.chapter || 'Autre';
+      if (!result[ch]) result[ch] = { sup: { bubbles: 0, done: 0 }, spe: { bubbles: 0, done: 0 } };
+      const bucket = normalizeNiveau(e.niveau);
+      if (bucket === 'sup' || bucket === 'spe') {
+        result[ch][bucket].bubbles += (e.exercise_count || 0);
+        result[ch][bucket].done += (progressMap[e.id] || 0);
+      }
+    });
+    return result;
   }, [initialExercises, progressMap]);
 
   return (
@@ -118,6 +155,27 @@ export default function ClientPage({ initialExercises }: ClientPageProps) {
                       style={{ width: `${vals.bubbles ? (vals.done / vals.bubbles) * 100 : 0}%` }}
                     />
                   </div>
+                  {/* Détails Sup / Spé pour ce chapitre */}
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {['Sup','Spé'].map(level => {
+                      const seg = level === 'Sup' ? chapterLevelTotals[ch]?.sup : chapterLevelTotals[ch]?.spe;
+                      const pct = seg && seg.bubbles ? Math.round((seg.done / seg.bubbles) * 100) : 0;
+                      return (
+                        <div key={level} className="text-xs">
+                          <div className="flex items-center justify-between text-slate-400 mb-1">
+                            <span>{level}</span>
+                            <span>{pct}%</span>
+                          </div>
+                          <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className={`h-2 ${level === 'Sup' ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </div>
@@ -125,7 +183,7 @@ export default function ClientPage({ initialExercises }: ClientPageProps) {
         </header>
 
         {/* 3. La liste des exercices */}
-        <ExerciseList initialExercises={initialExercises} onProgressChange={refreshProgress} />
+        <ExerciseList initialExercises={initialExercises} onProgressChange={refreshProgress} onProgressChangeImmediate={onProgressChangeImmediate} />
 
         {/* 4. Le MODAL DE CONNEXION */}
         <AuthModal 

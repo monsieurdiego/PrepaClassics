@@ -6,6 +6,7 @@ import { supabase } from "./supabase";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 import ClientPage from "./components/ClientPage";
+import DebugSession from "./components/DebugSession";
 
 // Le composant principal gère la récupération des données
 export default async function Home() {
@@ -25,7 +26,12 @@ export default async function Home() {
     console.warn('Erreur lors de la récupération des exercices Supabase :', err);
     exercises = [];
   }
-  return <ClientPage initialExercises={exercises} />;
+  return (
+    <>
+      <DebugSession />
+      <ClientPage initialExercises={exercises} />
+    </>
+  );
 }
 
 // ...existing code...
